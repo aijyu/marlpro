@@ -41,6 +41,42 @@ public class GameSetupTools
         CreateScene(settings);
     }
 
+    // Stage 1-3
+    [MenuItem("Tools/Create Stage 1-3")]
+    public static void CreateStage1_3()
+    {
+        StageSettings settings = new StageSettings
+        {
+            stageName = "Stage 1-3",
+            skyColor = new Color(0.1f, 0.1f, 0.3f), // Night Blue
+            groundColor = new Color(0.2f, 0.2f, 0.4f), // Dark Ground
+            platformColor = new Color(0.6f, 0.6f, 0.8f), // Pale platforms
+            holeFrequency = 10, // More holes
+            enemyFrequency = 10, // More enemies
+            platformGap = 9, 
+            goalX = 180 
+        };
+        CreateScene(settings);
+    }
+
+    // Stage 1-4
+    [MenuItem("Tools/Create Stage 1-4")]
+    public static void CreateStage1_4()
+    {
+        StageSettings settings = new StageSettings
+        {
+            stageName = "Stage 1-4",
+            skyColor = new Color(0.3f, 0.0f, 0.0f), // Dark Red/Lava Sky
+            groundColor = new Color(0.4f, 0.2f, 0.2f), // Reddish Ground
+            platformColor = new Color(0.3f, 0.3f, 0.3f), // Dark platforms
+            holeFrequency = 8, 
+            enemyFrequency = 8, // Very frequent enemies
+            platformGap = 11, // Far jumps
+            goalX = 200 // Long stage
+        };
+        CreateScene(settings);
+    }
+
     private struct StageSettings
     {
         public string stageName;

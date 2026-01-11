@@ -10,11 +10,14 @@ public class CameraFollow : MonoBehaviour
     {
         if (target == null) return;
 
-        Vector3 desiredPosition = target.position + offset;
-        // X軸のみ追従し、Y軸はある程度固定するか、両方追従するか選べますが、
-        // 2DアクションならY軸も追従した方が上下移動に対応しやすいです。
-        // ここではシンプルに両方追従させつつ、Lerpで滑らかにします。
+        // User Request: 上下は固定にしてほしい
+        // Y軸は現在のカメラの高さを維持し、X軸のみ追従する
+        Vector3 desiredPosition = new Vector3(target.position.x + offset.x, transform.position.y, transform.position.z);
+        
         Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
+        // Lerp等の計算誤差でZが変わらないように明示的に設定
+        smoothedPosition.z = transform.position.z; 
+        
         transform.position = smoothedPosition;
     }
 }
