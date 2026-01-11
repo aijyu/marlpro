@@ -30,13 +30,29 @@ public class GameSetupTools
         cameraObj.transform.position = new Vector3(0, 0, -10);
 
         // 4. Ground (地面)
-        GameObject ground = CreateSpriteObject("Ground", new Color(0.2f, 0.8f, 0.2f), new Vector3(0, -4, 0), new Vector3(200, 2, 1)); // 幅を広く
+        GameObject ground = CreateSpriteObject("Ground", new Color(0.2f, 0.8f, 0.2f), new Vector3(0, -4, 0), new Vector3(500, 2, 1)); // 幅をさらに広く
         ground.GetComponent<SpriteRenderer>().maskInteraction = SpriteMaskInteraction.None;
 
-        // 5. Platforms (空中の足場)
-        CreateSpriteObject("Platform1", new Color(0.6f, 0.4f, 0.2f), new Vector3(5, -1, 0), new Vector3(4, 1, 1));
-        CreateSpriteObject("Platform2", new Color(0.6f, 0.4f, 0.2f), new Vector3(12, 1, 0), new Vector3(4, 1, 1));
-        CreateSpriteObject("Platform3", new Color(0.6f, 0.4f, 0.2f), new Vector3(20, -1, 0), new Vector3(4, 1, 1));
+        // 5. Platforms (空中の足場) & 7. Enemy loop
+        // スタート付近からゴール付近までループで生成
+        for (int x = 5; x < 100; x += 8)
+        {
+            // ランダムな高さオフセット (-1 to 2) 簡易的にパターン化
+            float yOffset = (x % 3) * 1.5f - 1f; 
+            CreateSpriteObject($"Platform_{x}", new Color(0.6f, 0.4f, 0.2f), new Vector3(x, yOffset, 0), new Vector3(3, 1, 1));
+
+            // 一定間隔で敵を配置 (足場の上)
+            if (x % 16 == 5) // 適当な頻度
+            {
+                 CreateEnemy(new Vector3(x, yOffset + 1.5f, 0));
+            }
+        }
+        
+        // 地上の敵も追加
+        for (int x = 10; x < 100; x += 15)
+        {
+             CreateEnemy(new Vector3(x, -2, 0));
+        }
 
         // 6. Player
         GameObject player = CreateSpriteObject("Player", Color.white, new Vector3(-5, -2, 0), Vector3.one);
@@ -68,13 +84,8 @@ public class GameSetupTools
         CameraFollow cf = cameraObj.AddComponent<CameraFollow>();
         cf.target = player.transform;
 
-        // 7. Enemy
-        CreateEnemy(new Vector3(6, 0.5f, 0));
-        CreateEnemy(new Vector3(13, 2.5f, 0));
-        CreateEnemy(new Vector3(21, 0.5f, 0));
-
         // 8. Goal
-        GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(30, -2, 0), new Vector3(1, 4, 1));
+        GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(110, -2, 0), new Vector3(1, 4, 1));
         goal.tag = "Goal";
         goal.GetComponent<BoxCollider2D>().isTrigger = true;
         goal.AddComponent<Goal>(); // Goalスクリプトをアタッチ
