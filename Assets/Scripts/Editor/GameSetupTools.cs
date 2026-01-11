@@ -5,15 +5,59 @@ using UnityEngine.EventSystems;
 
 public class GameSetupTools
 {
-    [MenuItem("Tools/Create 2D Game Scene")]
-    public static void CreateScene()
+    // Stage 1-1
+    [MenuItem("Tools/Create Stage 1-1")]
+    public static void CreateStage1_1()
     {
-        // 1. タグの登録 (Enemy, Goal)
+        StageSettings settings = new StageSettings
+        {
+            stageName = "Stage 1-1",
+            skyColor = new Color(0.5f, 0.7f, 1f), // Blue Sky
+            groundColor = new Color(0.2f, 0.8f, 0.2f), // Green Ground
+            platformColor = new Color(0.6f, 0.4f, 0.2f), // Brown
+            holeFrequency = 0, // No big holes in ground, just continuous
+            enemyFrequency = 20,
+            platformGap = 10,
+            goalX = 110
+        };
+        CreateScene(settings);
+    }
+
+    // Stage 1-2
+    [MenuItem("Tools/Create Stage 1-2")]
+    public static void CreateStage1_2()
+    {
+        StageSettings settings = new StageSettings
+        {
+            stageName = "Stage 1-2",
+            skyColor = new Color(1f, 0.6f, 0.4f), // Sunset/Orange
+            groundColor = new Color(0.5f, 0.5f, 0.5f), // Gray/Stone Ground
+            platformColor = new Color(0.4f, 0.4f, 0.6f), // Blue-ish platforms
+            holeFrequency = 5, // Holes appear
+            enemyFrequency = 12, // More enemies
+            platformGap = 8, // Tighter jumps
+            goalX = 150 // Longer level
+        };
+        CreateScene(settings);
+    }
+
+    private struct StageSettings
+    {
+        public string stageName;
+        public Color skyColor;
+        public Color groundColor;
+        public Color platformColor;
+        public int holeFrequency; // 0=none, higher=more holes
+        public int enemyFrequency; // lower=more frequent
+        public int platformGap;
+        public float goalX;
+    }
+
+    private static void CreateScene(StageSettings settings)
+    {
         CreateTag("Enemy");
         CreateTag("Goal");
 
-        // 2. 既存のオブジェクトを掃除 (Canvas, EventSystem, Camera除く...いや、全削除推奨だが、カメラは残すか再利用)
-        // カメラはセットアップし直す
         if (Camera.main != null)
         {
             Object.DestroyImmediate(Camera.main.gameObject);
@@ -23,94 +67,130 @@ public class GameSetupTools
         GameObject cameraObj = new GameObject("Main Camera");
         Camera cam = cameraObj.AddComponent<Camera>();
         cam.orthographic = true;
-        cam.orthographicSize = 8f; // 視野を広く
-        cam.backgroundColor = new Color(0.5f, 0.7f, 1f);
+        cam.orthographicSize = 8f; 
+        cam.backgroundColor = settings.skyColor;
         cam.clearFlags = CameraClearFlags.SolidColor;
         cameraObj.tag = "MainCamera";
         cameraObj.transform.position = new Vector3(0, 0, -10);
 
-        // 4. Ground (地面)
-        GameObject ground = CreateSpriteObject("Ground", new Color(0.2f, 0.8f, 0.2f), new Vector3(0, -4, 0), new Vector3(500, 2, 1)); // 幅をさらに広く
-        ground.GetComponent<SpriteRenderer>().maskInteraction = SpriteMaskInteraction.None;
+        // 4. Ground (地面) - 穴を作るために分割生成するか、一枚板にするか
+        // 1-2で穴を作りたいので、ループで生成する方式に変えます
+        CreateGround(settings);
 
-        // 5. Platforms (空中の足場) & 7. Enemy loop
-        // スタート付近からゴール付近までループで生成
-        // 5. Platforms (空中の足場) & 7. Enemy loop
-        // スタート付近からゴール付近までループで生成 (間隔を少し広げる 8->10)
-        for (int x = 5; x < 100; x += 10)
+        // 5. Platforms & Enemies
+        for (int x = 10; x < settings.goalX - 10; x += settings.platformGap)
         {
             float yOffset = (x % 3) * 1.5f - 1f; 
-            // スケール変更: (3, 1, 1) -> (4.5, 1.5, 1)
-            CreateSpriteObject($"Platform_{x}", new Color(0.6f, 0.4f, 0.2f), new Vector3(x, yOffset, 0), new Vector3(4.5f, 1.5f, 1));
+            CreateSpriteObject($"Platform_{x}", settings.platformColor, new Vector3(x, yOffset, 0), new Vector3(4.5f, 1.5f, 1));
 
-            if (x % 20 == 5) // 頻度微調整
+            if (x % settings.enemyFrequency == 5) 
             {
-                 // Enemy Scale: Vector3.one -> Vector3.one * 1.5f
                  CreateEnemy(new Vector3(x, yOffset + 2f, 0));
             }
         }
         
-        // 地上の敵も追加
-        for (int x = 10; x < 100; x += 15)
-        {
-             CreateEnemy(new Vector3(x, -1.5f, 0));
-        }
-
         // 6. Player
-        // Player Scale: Vector3.one -> Vector3.one * 1.5f
         GameObject player = CreateSpriteObject("Player", Color.white, new Vector3(-5, -1, 0), Vector3.one * 1.5f);
         player.tag = "Player";
         Rigidbody2D rb = player.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
-        rb.gravityScale = 3f; // 重力を強くして落下速度を上げる
+        rb.gravityScale = 3f;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         rb.interpolation = RigidbodyInterpolation2D.Interpolate; 
         
-        // 壁張り付き防止のマテリアル
         PhysicsMaterial2D noFriction = new PhysicsMaterial2D("NoFriction");
         noFriction.friction = 0;
         player.GetComponent<BoxCollider2D>().sharedMaterial = noFriction;
 
         PlayerController pc = player.AddComponent<PlayerController>();
         pc.moveSpeed = 8f;
-        pc.jumpForce = 22f; // 重力3倍に合わせてジャンプ力も強化（ただし高く飛びすぎないように調整）
+        pc.jumpForce = 22f; 
         
-        // GroundCheck用の子オブジェクト
         GameObject groundCheck = new GameObject("GroundCheck");
         groundCheck.transform.parent = player.transform;
         groundCheck.transform.localPosition = new Vector3(0, -0.6f, 0); 
         pc.groundCheck = groundCheck.transform;
         
-        // レイヤーマスク設定
         pc.groundLayer = -1; 
 
-        // カメラ追従設定
         CameraFollow cf = cameraObj.AddComponent<CameraFollow>();
         cf.target = player.transform;
 
         // 8. Goal
-        GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(110, -2, 0), new Vector3(1, 4, 1));
+        GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(settings.goalX, -2, 0), new Vector3(1, 4, 1));
         goal.tag = "Goal";
         goal.GetComponent<BoxCollider2D>().isTrigger = true;
-        goal.AddComponent<Goal>(); // Goalスクリプトをアタッチ
+        goal.AddComponent<Goal>();
 
-        // 9. GameManager
-        GameObject gmObj = new GameObject("GameManager");
-        GameManager gm = gmObj.AddComponent<GameManager>();
+        // 9. UI setup (GameManager, Canvas...)
+        SetupUI(settings);
 
-        // 10. UI Canvas
+        Debug.Log($"{settings.stageName} Created Successfully!");
+    }
+
+    private static void CreateGround(StageSettings settings)
+    {
+        // 穴あき地面生成ロジック
+        // -10からゴール先(+20)まで
+        int startX = -10;
+        int endX = (int)settings.goalX + 20;
+        int currentX = startX;
+
+        while (currentX < endX)
+        {
+            // 穴を作るかどうか
+            bool makeHole = false;
+            if (settings.holeFrequency > 0 && currentX > 10 && currentX < settings.goalX - 10)
+            {
+                // 固定周期で穴をあける簡易ロジック (例: holeFrequencyが5なら、ある程度ランダムではなく固定パタンでもよいが)
+                // ここでは単純にランダム要素を入れると再現性がなくなるので、
+                // X座標に基づいて穴を決める
+                if (currentX % 30 < 5) // 30ブロックごとに5ブロック分の穴
+                {
+                    if (settings.holeFrequency >= 5) makeHole = true;
+                }
+            }
+
+            if (makeHole)
+            {
+                currentX += 5; // 穴の幅
+            }
+            else
+            {
+                // 地面ブロック生成
+                // 幅20のブロックを置く
+                int width = 20;
+                // 次の穴までの距離を確認して調整すべきだが、簡易的に重ねて配置
+                CreateSpriteObject($"Ground_{currentX}", settings.groundColor, new Vector3(currentX + width/2f, -4, 0), new Vector3(width, 2, 1));
+                
+                // 地上の敵
+                if (currentX > 5 && currentX < settings.goalX)
+                {
+                     if (currentX % settings.enemyFrequency * 2 == 0) // 適当な頻度
+                     {
+                         CreateEnemy(new Vector3(currentX, -1.5f, 0));
+                     }
+                }
+                
+                currentX += width;
+            }
+        }
+    }
+
+    private static void SetupUI(StageSettings settings)
+    {
+        GameManager gm = new GameObject("GameManager").AddComponent<GameManager>();
+        
         GameObject canvasObj = new GameObject("Canvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvasObj.AddComponent<CanvasScaler>();
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // EventSystem (必須)
         GameObject eventSystem = new GameObject("EventSystem");
         eventSystem.AddComponent<EventSystem>();
         eventSystem.AddComponent<StandaloneInputModule>();
 
-        // Score Text
         GameObject scoreTextObj = new GameObject("ScoreText");
         scoreTextObj.transform.SetParent(canvasObj.transform, false);
         Text scoreText = scoreTextObj.AddComponent<Text>();
@@ -127,14 +207,14 @@ public class GameSetupTools
 
         // Game Over Panel
         GameObject gameOverPanel = CreatePanel(canvasObj.transform, "GameOverPanel", Color.black, 0.8f);
-        Text goText = CreateText(gameOverPanel.transform, "GAME OVER", 50, Color.red, 50);
-        Button restartBtn = CreateButton(gameOverPanel.transform, "Restart", 50, gm);
+        CreateText(gameOverPanel.transform, "GAME OVER", 50, Color.red, 50);
+        CreateButton(gameOverPanel.transform, "Restart", 50, gm.RestartGame);
         gm.gameOverPanel = gameOverPanel;
         gameOverPanel.SetActive(false);
 
         // Stage Clear Panel
         GameObject clearPanel = CreatePanel(canvasObj.transform, "StageClearPanel", Color.white, 0.8f);
-        Text scText = CreateText(clearPanel.transform, "STAGE CLEAR!", 50, Color.blue, 100);
+        CreateText(clearPanel.transform, "STAGE CLEAR!", 50, Color.blue, 100);
         
         GameObject finalScoreObj = new GameObject("FinalScoreText");
         finalScoreObj.transform.SetParent(clearPanel.transform, false);
@@ -147,14 +227,15 @@ public class GameSetupTools
         fsText.rectTransform.sizeDelta = new Vector2(400, 50);
         gm.finalScoreText = fsText;
 
-        Button clearRestartBtn = CreateButton(clearPanel.transform, "Restart", -100, gm);
+        // Next Stage Button
+        CreateButton(clearPanel.transform, "Next Stage", -50, gm.NextStage);
+        // Restart Button (Retry)
+        CreateButton(clearPanel.transform, "Replay", -120, gm.RestartGame);
+
         gm.stageClearPanel = clearPanel;
-        clearPanel.SetActive(false); // 初期は非表示
-
-        // 変更をUnityエディタに認識させる（重要）
+        clearPanel.SetActive(false);
+        
         EditorUtility.SetDirty(gm);
-
-        Debug.Log("Scene Created Successfully!");
     }
 
     private static GameObject CreateSpriteObject(string name, Color color, Vector3 position, Vector3 scale)
@@ -183,20 +264,17 @@ public class GameSetupTools
 
     private static void CreateEnemy(Vector3 position)
     {
-        // Enemy Scale: Vector3.one -> Vector3.one * 1.5f
         GameObject enemy = CreateSpriteObject("Enemy", Color.red, position, Vector3.one * 1.5f);
         enemy.tag = "Enemy";
         
         Rigidbody2D rb = enemy.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
-        rb.interpolation = RigidbodyInterpolation2D.Interpolate; // ガクつき防止
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate; 
 
         EnemyController ec = enemy.AddComponent<EnemyController>();
         
-        // Checks
         GameObject groundCheck = new GameObject("GroundCheck");
         groundCheck.transform.parent = enemy.transform;
-        // 判定位置を内側(0.3f)に寄せて、崖ギリギリまで進めるように緩和
         groundCheck.transform.localPosition = new Vector3(0.3f, -0.6f, 0); 
         ec.groundCheck = groundCheck.transform;
 
@@ -218,10 +296,7 @@ public class GameSetupTools
 
             for (int i = 0; i < tags.arraySize; ++i)
             {
-                if (tags.GetArrayElementAtIndex(i).stringValue == tagName)
-                {
-                    return; 
-                }
+                if (tags.GetArrayElementAtIndex(i).stringValue == tagName) return;
             }
 
             tags.InsertArrayElementAtIndex(tags.arraySize);
@@ -235,16 +310,13 @@ public class GameSetupTools
     {
         GameObject panel = new GameObject(name);
         panel.transform.SetParent(parent, false);
-        
         Image img = panel.AddComponent<Image>();
         color.a = alpha;
         img.color = color;
-        
         RectTransform rect = panel.GetComponent<RectTransform>();
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
         rect.sizeDelta = Vector2.zero; 
-        
         return panel;
     }
 
@@ -263,20 +335,16 @@ public class GameSetupTools
         return txt;
     }
 
-    private static Button CreateButton(Transform parent, string label, float yOffset, GameManager gm)
+    // UnityActionを受け取るように変更
+    private static Button CreateButton(Transform parent, string label, float yOffset, UnityEngine.Events.UnityAction action)
     {
-        GameObject btnObj = new GameObject("RestartButton");
+        GameObject btnObj = new GameObject("Button");
         btnObj.transform.SetParent(parent, false);
-        
         Image img = btnObj.AddComponent<Image>();
         img.color = Color.white;
         
         Button btn = btnObj.AddComponent<Button>();
-        
-        // 重要: エディタスクリプトで永続的なリスナーを追加する
-        // UnityEventToolsを使用するにはUnityEditor.Events名前空間が必要だが、
-        // このスクリプトはEditorフォルダにあるのでOK
-        UnityEditor.Events.UnityEventTools.AddPersistentListener(btn.onClick, gm.RestartGame);
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(btn.onClick, action); // 汎用化
 
         RectTransform rect = btnObj.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(200, 50);
@@ -291,7 +359,6 @@ public class GameSetupTools
         txt.color = Color.black;
         txt.alignment = TextAnchor.MiddleCenter;
         txt.resizeTextForBestFit = true;
-        
         RectTransform textRect = textObj.GetComponent<RectTransform>();
         textRect.anchorMin = Vector2.zero;
         textRect.anchorMax = Vector2.one;

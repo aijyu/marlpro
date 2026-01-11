@@ -106,4 +106,20 @@ public class GameManager : MonoBehaviour
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
+
+    public void NextStage()
+    {
+        int currentSceneIndex = SceneManager.GetActiveScene().buildIndex;
+        // 次のシーンがあるか確認
+        if (currentSceneIndex + 1 < SceneManager.sceneCountInBuildSettings)
+        {
+            SceneManager.LoadScene(currentSceneIndex + 1);
+        }
+        else
+        {
+            // なければ最初に戻る（あるいはエンディング）
+            Debug.Log("All Stages Cleared! Returning to first stage.");
+            SceneManager.LoadScene(0);
+        }
+    }
 }
