@@ -2,69 +2,52 @@ using UnityEngine;
 
 public class EnemyController : MonoBehaviour
 {
-    public float moveSpeed = 3f;
+    public float moveSpeed = 2f;
+    private int direction = 1; // 1: Right, -1: Left
+    private Rigidbody2D rb;
     public Transform groundCheck;
     public Transform wallCheck;
-    public LayerMask collisionLayer;
+    public float checkRadius = 0.1f;
+    public LayerMask groundLayer;
+    private GameManager gameManager;
 
-    private Rigidbody2D rb;
-    private bool movingRight = true;
-
-    private void Awake()
+    void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        gameManager = FindObjectOfType<GameManager>();
     }
 
-    private void Update()
+    void FixedUpdate()
     {
-        // Check for walls or edges (Sensor logic can stay in Update or FixedUpdate, FixedUpdate is better for physics sync)
-    }
+        // 地面の切れ目検知（進行方向に地面があるか）
+        bool isGroundAhead = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
+        // 壁検知（進行方向に壁があるか）
+        bool isWallAhead = Physics2D.OverlapCircle(wallCheck.position, checkRadius, groundLayer);
 
-    private void FixedUpdate()
-    {
-        // Move
-        rb.velocity = new Vector2(movingRight ? moveSpeed : -moveSpeed, rb.velocity.y);
-
-        // Check for walls (Filter out triggers to avoid UI/other weird hits)
-        Collider2D hit = Physics2D.OverlapCircle(wallCheck.position, 0.1f, collisionLayer);
-        // Ensure we hit something that is NOT ourselves (just in case) and NOT a trigger
-        bool wallHit = hit != null && hit.gameObject != gameObject && !hit.isTrigger;
-        
-        if (wallHit)
+        // 地面がない、または壁がある場合、反転
+        if (!isGroundAhead || isWallAhead)
         {
             Flip();
         }
+
+        rb.velocity = new Vector2(moveSpeed * direction, rb.velocity.y);
     }
 
-    private void Flip()
+    void Flip()
     {
-        movingRight = !movingRight;
-        transform.localScale = new Vector3(movingRight ? 1 : -1, 1, 1);
+        direction *= -1;
+        transform.localScale = new Vector3(direction, 1, 1);
     }
 
-    private void OnCollisionEnter2D(Collision2D collision)
+    public void Defeat()
     {
-        if (collision.gameObject.CompareTag("Player"))
+        // スコア加算
+        if (gameManager != null)
         {
-            // Simple logic: if player is above, enemy dies. Otherwise player dies.
-            // This relies on contact points or relative position.
-            
-            // For simplicity, let's say if collision normal is mostly down (-1 y), player jumped on top.
-            foreach (ContactPoint2D point in collision.contacts)
-            {
-                if (point.normal.y < -0.5f) 
-                {
-                    // Player is above
-                    GameManager.Instance.AddScore(100);
-                    Destroy(gameObject);
-                    // Add bounce to player?
-                    collision.gameObject.GetComponent<Rigidbody2D>().AddForce(Vector2.up * 10f, ForceMode2D.Impulse);
-                    return;
-                }
-            }
-            
-            // If we are here, player got hit from side/bottom
-            GameManager.Instance.GameOver();
+            gameManager.AddScore(100);
         }
+        
+        // 倒された演出（パーティクルなどあればここで生成）
+        Destroy(gameObject);
     }
 }

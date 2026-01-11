@@ -1,16 +1,12 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
     public Text scoreText;
-    public GameObject gameOverPanel;
-    public GameObject gameClearPanel;
-
-    private int score = 0;
 
     private void Awake()
     {
@@ -23,21 +19,28 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
+    public GameObject gameOverPanel;
+    public GameObject stageClearPanel;
+    public Text finalScoreText; // クリア時のスコア表示用
 
-    private void Start()
+    private int score = 0;
+    private bool isGameOver = false;
+
+    void Start()
     {
-        UpdateScoreText();
+        UpdateScoreUI();
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
-        if (gameClearPanel != null) gameClearPanel.SetActive(false);
+        if (stageClearPanel != null) stageClearPanel.SetActive(false);
     }
 
-    public void AddScore(int amount)
+    public void AddScore(int visibleScore)
     {
-        score += amount;
-        UpdateScoreText();
+        if (isGameOver) return;
+        score += visibleScore;
+        UpdateScoreUI();
     }
 
-    private void UpdateScoreText()
+    void UpdateScoreUI()
     {
         if (scoreText != null)
         {
@@ -47,34 +50,43 @@ public class GameManager : MonoBehaviour
 
     public void GameOver()
     {
+        if (isGameOver) return;
+        isGameOver = true;
+        
         Debug.Log("Game Over!");
         if (gameOverPanel != null)
         {
             gameOverPanel.SetActive(true);
         }
-        else
+    }
+
+    public void StageClear()
+    {
+        if (isGameOver) return;
+        isGameOver = true;
+        
+        AddScore(1000); // クリアボーナス
+
+        Debug.Log("Stage Clear!");
+        if (stageClearPanel != null)
         {
-            Invoke("RestartScene", 2f);
+            stageClearPanel.SetActive(true);
+            if (finalScoreText != null)
+            {
+                finalScoreText.text = "Final Score: " + score;
+            }
         }
     }
 
+
+
+    // Goal.csからの互換性用
     public void GameWin()
     {
-        Debug.Log("Game Win!");
-        // Bonus score for clearing?
-        AddScore(1000);
-        
-        if (gameClearPanel != null)
-        {
-            gameClearPanel.SetActive(true);
-        }
-        else
-        {
-            Invoke("RestartScene", 3f);
-        }
+        StageClear();
     }
 
-    public void RestartScene()
+    public void RestartGame()
     {
         SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }

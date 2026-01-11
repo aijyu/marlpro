@@ -2,230 +2,274 @@ using UnityEngine;
 using UnityEditor;
 using UnityEngine.UI;
 using UnityEngine.EventSystems;
-using UnityEditor.Events;
 
 public class GameSetupTools
 {
     [MenuItem("Tools/Create 2D Game Scene")]
-    public static void SetupScene()
+    public static void CreateScene()
     {
-        // 0. Sprite Generation
-        Texture2D texture = new Texture2D(1, 1);
-        texture.SetPixel(0, 0, Color.white);
-        texture.Apply();
+        // 1. タグの登録 (Enemy, Goal)
+        CreateTag("Enemy");
+        CreateTag("Goal");
+
+        // 2. 既存のオブジェクトを掃除 (Canvas, EventSystem, Camera除く...いや、全削除推奨だが、カメラは残すか再利用)
+        // カメラはセットアップし直す
+        if (Camera.main != null)
+        {
+            Object.DestroyImmediate(Camera.main.gameObject);
+        }
         
-        // 1 Unity Unit = 1 Pixel (using 1.0f)
-        Sprite whiteSprite = Sprite.Create(texture, new Rect(0, 0, 1, 1), new Vector2(0.5f, 0.5f), 1.0f);
+        // 3. Main Camera
+        GameObject cameraObj = new GameObject("Main Camera");
+        Camera cam = cameraObj.AddComponent<Camera>();
+        cam.orthographic = true;
+        cam.orthographicSize = 5f;
+        cam.backgroundColor = new Color(0.5f, 0.7f, 1f); // 青空っぽい色
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cameraObj.tag = "MainCamera";
+        cameraObj.transform.position = new Vector3(0, 0, -10);
 
-        // 0b. Physics Material
-        PhysicsMaterial2D noFrictionMat = new PhysicsMaterial2D("NoFriction");
-        noFrictionMat.friction = 0f;
-        noFrictionMat.bounciness = 0f;
+        // 4. Ground (地面)
+        GameObject ground = CreateSpriteObject("Ground", new Color(0.2f, 0.8f, 0.2f), new Vector3(0, -4, 0), new Vector3(100, 2, 1));
+        ground.GetComponent<SpriteRenderer>().maskInteraction = SpriteMaskInteraction.None; // Default
+        // Rigidbodyは不要、StaticでOK
 
-        // 1. Camera
-        Camera.main.transform.position = new Vector3(0, 0, -10);
-        Camera.main.backgroundColor = new Color(0.4f, 0.6f, 0.9f);
-        Camera.main.orthographic = true;
-        Camera.main.orthographicSize = 6; // Zoom out slightly
+        // 5. Platforms (空中の足場)
+        CreateSpriteObject("Platform1", new Color(0.6f, 0.4f, 0.2f), new Vector3(5, -1, 0), new Vector3(4, 1, 1));
+        CreateSpriteObject("Platform2", new Color(0.6f, 0.4f, 0.2f), new Vector3(12, 1, 0), new Vector3(4, 1, 1));
+        CreateSpriteObject("Platform3", new Color(0.6f, 0.4f, 0.2f), new Vector3(20, -1, 0), new Vector3(4, 1, 1));
 
-        // 2. Ground (Extended)
-        GameObject ground = new GameObject("Ground");
-        ground.transform.position = new Vector3(10, -3, 0); // Shifted right
-        ground.transform.localScale = new Vector3(40, 1, 1); // Longer
-        SpriteRenderer groundSr = ground.AddComponent<SpriteRenderer>();
-        groundSr.sprite = whiteSprite;
-        groundSr.color = new Color(0.3f, 0.7f, 0.3f); 
-        ground.AddComponent<BoxCollider2D>();
-        ground.layer = LayerMask.NameToLayer("Default");
-
-        // 2b. Platforms
-        CreatePlatform(new Vector3(3, -0.5f, 0), new Vector3(4, 0.5f, 1), whiteSprite);
-        CreatePlatform(new Vector3(10, 1f, 0), new Vector3(3, 0.5f, 1), whiteSprite);
-        CreatePlatform(new Vector3(18, 0f, 0), new Vector3(3, 0.5f, 1), whiteSprite);
-        CreatePlatform(new Vector3(24, -1f, 0), new Vector3(4, 0.5f, 1), whiteSprite);
-
-        // 2c. Walls
-        GameObject wallLeft = new GameObject("WallLeft");
-        wallLeft.transform.position = new Vector3(-9, 0, 0); 
-        wallLeft.transform.localScale = new Vector3(1, 10, 1);
-        SpriteRenderer wallLSr = wallLeft.AddComponent<SpriteRenderer>();
-        wallLSr.sprite = whiteSprite;
-        wallLSr.color = new Color(0.5f, 0.5f, 0.5f);
-        wallLeft.AddComponent<BoxCollider2D>();
-        wallLeft.layer = LayerMask.NameToLayer("Default");
-
-        // 3. Player
-        GameObject player = new GameObject("Player");
-        player.transform.position = new Vector3(-5, -1, 0);
-        player.layer = 2; // Ignore Raycast
-
-        SpriteRenderer playerSr = player.AddComponent<SpriteRenderer>();
-        playerSr.sprite = whiteSprite;
-        playerSr.color = Color.white; 
-
-        Rigidbody2D playerRb = player.AddComponent<Rigidbody2D>();
-        playerRb.freezeRotation = true;
-        playerRb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-
-        BoxCollider2D playerCol = player.AddComponent<BoxCollider2D>();
-        playerCol.sharedMaterial = noFrictionMat;
+        // 6. Player
+        GameObject player = CreateSpriteObject("Player", Color.white, new Vector3(-5, -2, 0), Vector3.one);
+        player.tag = "Player";
+        Rigidbody2D rb = player.AddComponent<Rigidbody2D>();
+        rb.freezeRotation = true;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         
-        PlayerController playerCtrl = player.AddComponent<PlayerController>();
-        playerCtrl.moveSpeed = 8f;
-        playerCtrl.jumpForce = 15f; 
+        PlayerController pc = player.AddComponent<PlayerController>();
+        pc.moveSpeed = 8f;
+        pc.jumpForce = 12f;
         
+        // GroundCheck用の子オブジェクト
         GameObject groundCheck = new GameObject("GroundCheck");
         groundCheck.transform.parent = player.transform;
-        groundCheck.transform.localPosition = new Vector3(0, -0.55f, 0); 
-        playerCtrl.groundCheck = groundCheck.transform;
-        playerCtrl.groundLayer = 1 << 0; 
-        player.tag = "Player";
+        groundCheck.transform.localPosition = new Vector3(0, -0.6f, 0); // 足元
+        pc.groundCheck = groundCheck.transform;
+        
+        // レイヤーマスク設定 (Everything)
+        pc.groundLayer = -1; // -1 is Everything (簡易的に)
 
-        CameraFollow camFollow = Camera.main.gameObject.AddComponent<CameraFollow>();
-        camFollow.target = player.transform;
+        // カメラ追従設定
+        CameraFollow cf = cameraObj.AddComponent<CameraFollow>();
+        cf.target = player.transform;
 
-        // 4. Enemy
-        CreateEnemy(new Vector3(5, -2, 0), whiteSprite, noFrictionMat);
-        CreateEnemy(new Vector3(15, -2, 0), whiteSprite, noFrictionMat);
-        CreateEnemy(new Vector3(10, 2.5f, 0), whiteSprite, noFrictionMat); // On platform
+        // 7. Enemy
+        CreateEnemy(new Vector3(6, 0.5f, 0));
+        CreateEnemy(new Vector3(13, 2.5f, 0));
+        CreateEnemy(new Vector3(21, 0.5f, 0));
 
-        // 5. Goal
-        GameObject goal = new GameObject("Goal");
-        goal.transform.position = new Vector3(28, -2f, 0);
-        goal.transform.localScale = new Vector3(1, 4, 1); // Pole
-        SpriteRenderer goalSr = goal.AddComponent<SpriteRenderer>();
-        goalSr.sprite = whiteSprite;
-        goalSr.color = new Color(1f, 0.9f, 0f); // Yellow
-        BoxCollider2D goalCol = goal.AddComponent<BoxCollider2D>();
-        goalCol.isTrigger = true;
-        goal.AddComponent<Goal>();
+        // 8. Goal
+        GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(30, -2, 0), new Vector3(1, 4, 1));
+        goal.tag = "Goal";
+        goal.GetComponent<BoxCollider2D>().isTrigger = true;
 
-        // 6. Manager
-        GameObject gm = new GameObject("GameManager");
-        GameManager gmScript = gm.AddComponent<GameManager>();
+        // 9. GameManager
+        GameObject gmObj = new GameObject("GameManager");
+        GameManager gm = gmObj.AddComponent<GameManager>();
 
-        // 7. UI
+        // 10. UI Canvas
         GameObject canvasObj = new GameObject("Canvas");
         Canvas canvas = canvasObj.AddComponent<Canvas>();
         canvas.renderMode = RenderMode.ScreenSpaceOverlay;
         canvasObj.AddComponent<CanvasScaler>();
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        if (Object.FindObjectOfType<EventSystem>() == null)
-        {
-            GameObject eventSystem = new GameObject("EventSystem");
-            eventSystem.AddComponent<EventSystem>();
-            eventSystem.AddComponent<StandaloneInputModule>();
-        }
+        // EventSystem
+        GameObject eventSystem = new GameObject("EventSystem");
+        eventSystem.AddComponent<EventSystem>();
+        eventSystem.AddComponent<StandaloneInputModule>();
 
-        Font uiFont = Font.CreateDynamicFontFromOSFont("Arial", 24);
+        // Score Text
+        GameObject scoreTextObj = new GameObject("ScoreText");
+        scoreTextObj.transform.SetParent(canvasObj.transform, false);
+        Text scoreText = scoreTextObj.AddComponent<Text>();
+        scoreText.text = "Score: 0";
+        scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); // Legacy Font
+        scoreText.fontSize = 30;
+        scoreText.color = Color.black;
+        scoreText.rectTransform.anchorMin = new Vector2(0, 1);
+        scoreText.rectTransform.anchorMax = new Vector2(0, 1);
+        scoreText.rectTransform.pivot = new Vector2(0, 1);
+        scoreText.rectTransform.anchoredPosition = new Vector2(20, -20);
+        scoreText.rectTransform.sizeDelta = new Vector2(200, 50);
+        gm.scoreText = scoreText;
 
-        // Score
-        GameObject scoreObj = new GameObject("ScoreText");
-        scoreObj.transform.SetParent(canvasObj.transform, false);
-        Text scoreText = scoreObj.AddComponent<Text>();
-        scoreText.font = uiFont;
-        scoreText.fontSize = 32;
-        scoreText.alignment = TextAnchor.UpperLeft;
-        scoreText.color = Color.black; // Visible against sky
-        scoreText.horizontalOverflow = HorizontalWrapMode.Overflow;
-        scoreText.verticalOverflow = VerticalWrapMode.Overflow;
-        RectTransform scoreRect = scoreText.GetComponent<RectTransform>();
-        scoreRect.anchorMin = new Vector2(0, 1);
-        scoreRect.anchorMax = new Vector2(0, 1);
-        scoreRect.pivot = new Vector2(0, 1);
-        scoreRect.anchoredPosition = new Vector2(20, -20);
-        gmScript.scoreText = scoreText;
+        // Game Over Panel
+        GameObject gameOverPanel = CreatePanel(canvasObj.transform, "GameOverPanel", Color.black, 0.8f);
+        Text goText = CreateText(gameOverPanel.transform, "GAME OVER", 50, Color.red, 50);
+        Button restartBtn = CreateButton(gameOverPanel.transform, "Restart", 50, gm);
+        gm.gameOverPanel = gameOverPanel;
+        gameOverPanel.SetActive(false); // 初期は非表示
 
-        // UI Builder Helper
-        gmScript.gameOverPanel = CreatePanel(canvasObj, "GameOverPanel", "GAME OVER", Color.black, uiFont, gmScript.RestartScene);
-        gmScript.gameClearPanel = CreatePanel(canvasObj, "GameClearPanel", "STAGE CLEAR!", new Color(1f, 0.8f, 0f, 0.8f), uiFont, gmScript.RestartScene);
+        // Stage Clear Panel
+        GameObject clearPanel = CreatePanel(canvasObj.transform, "StageClearPanel", Color.white, 0.8f);
+        Text scText = CreateText(clearPanel.transform, "STAGE CLEAR!", 50, Color.blue, 100);
+        
+        GameObject finalScoreObj = new GameObject("FinalScoreText");
+        finalScoreObj.transform.SetParent(clearPanel.transform, false);
+        Text fsText = finalScoreObj.AddComponent<Text>();
+        fsText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        fsText.fontSize = 30;
+        fsText.color = Color.black;
+        fsText.alignment = TextAnchor.MiddleCenter;
+        fsText.rectTransform.anchoredPosition = new Vector2(0, 0);
+        fsText.rectTransform.sizeDelta = new Vector2(400, 50);
+        gm.finalScoreText = fsText;
 
-        Debug.Log("Level Extension Setup Complete!");
+        Button clearRestartBtn = CreateButton(clearPanel.transform, "Restart", -100, gm);
+        gm.stageClearPanel = clearPanel;
+        clearPanel.SetActive(false);
+
+        Debug.Log("Scene Created Successfully!");
     }
 
-    private static void CreatePlatform(Vector3 pos, Vector3 scale, Sprite sprite)
+    private static GameObject CreateSpriteObject(string name, Color color, Vector3 position, Vector3 scale)
     {
-        GameObject plat = new GameObject("Platform");
-        plat.transform.position = pos;
-        plat.transform.localScale = scale;
-        SpriteRenderer sr = plat.AddComponent<SpriteRenderer>();
-        sr.sprite = sprite;
-        sr.color = new Color(0.6f, 0.4f, 0.2f); // Brown
-        plat.AddComponent<BoxCollider2D>();
-        plat.layer = LayerMask.NameToLayer("Default");
+        GameObject obj = new GameObject(name);
+        obj.transform.position = position;
+        obj.transform.localScale = scale;
+        
+        SpriteRenderer sr = obj.AddComponent<SpriteRenderer>();
+        sr.sprite = CreateSquareSprite(color);
+        
+        obj.AddComponent<BoxCollider2D>();
+        
+        return obj;
     }
 
-    private static void CreateEnemy(Vector3 pos, Sprite sprite, PhysicsMaterial2D mat)
+    private static Sprite CreateSquareSprite(Color color)
     {
-        GameObject enemy = new GameObject("Enemy");
-        enemy.transform.position = pos;
-        enemy.layer = 0; 
-        SpriteRenderer sr = enemy.AddComponent<SpriteRenderer>();
-        sr.sprite = sprite;
-        sr.color = Color.red; 
+        // 簡易的なテクスチャ生成
+        Texture2D texture = new Texture2D(32, 32);
+        Color[] pixels = new Color[32 * 32];
+        for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
+        texture.SetPixels(pixels);
+        texture.Apply();
+        return Sprite.Create(texture, new Rect(0, 0, 32, 32), new Vector2(0.5f, 0.5f));
+    }
+
+    private static void CreateEnemy(Vector3 position)
+    {
+        GameObject enemy = CreateSpriteObject("Enemy", Color.red, position, Vector3.one);
+        enemy.tag = "Enemy";
+        
         Rigidbody2D rb = enemy.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
-        BoxCollider2D col = enemy.AddComponent<BoxCollider2D>();
-        col.sharedMaterial = mat;
+
+        EnemyController ec = enemy.AddComponent<EnemyController>();
         
-        EnemyController ctrl = enemy.AddComponent<EnemyController>();
+        // Checks
+        GameObject groundCheck = new GameObject("GroundCheck");
+        groundCheck.transform.parent = enemy.transform;
+        groundCheck.transform.localPosition = new Vector3(0.6f, -0.6f, 0); // 進行方向斜め下
+        ec.groundCheck = groundCheck.transform;
+
         GameObject wallCheck = new GameObject("WallCheck");
         wallCheck.transform.parent = enemy.transform;
-        wallCheck.transform.localPosition = new Vector3(0.8f, 0, 0); 
-        ctrl.wallCheck = wallCheck.transform;
-        ctrl.collisionLayer = 1 << 0; 
+        wallCheck.transform.localPosition = new Vector3(0.6f, 0, 0); // 進行方向
+        ec.wallCheck = wallCheck.transform;
+
+        // レイヤー設定
+        ec.groundLayer = -1; 
     }
 
-    private static GameObject CreatePanel(GameObject canvas, string name, string label, Color bgColor, Font font, UnityEngine.Events.UnityAction action)
+    private static void CreateTag(string tagName)
     {
-        GameObject panelObj = new GameObject(name);
-        panelObj.transform.SetParent(canvas.transform, false);
-        Image panelImage = panelObj.AddComponent<Image>();
-        panelImage.color = bgColor;
-        RectTransform panelRect = panelObj.GetComponent<RectTransform>();
-        panelRect.anchorMin = Vector2.zero;
-        panelRect.anchorMax = Vector2.one;
-        panelRect.offsetMin = Vector2.zero;
-        panelRect.offsetMax = Vector2.zero;
+        // Tagが既に存在するかチェックして、なければ追加するのはEditorスクリプト特有処理
+        // SerializedObjectを使ってTagManagerを編集する
+        Object[] asset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
+        if ((asset != null) && (asset.Length > 0))
+        {
+            SerializedObject so = new SerializedObject(asset[0]);
+            SerializedProperty tags = so.FindProperty("tags");
 
-        GameObject textObj = new GameObject("Title");
-        textObj.transform.SetParent(panelObj.transform, false);
-        Text text = textObj.AddComponent<Text>();
-        text.font = font;
-        text.text = label;
-        text.fontSize = 64;
-        text.alignment = TextAnchor.MiddleCenter;
-        text.color = Color.white;
-        text.horizontalOverflow = HorizontalWrapMode.Overflow;
-        text.verticalOverflow = VerticalWrapMode.Overflow;
-        textObj.GetComponent<RectTransform>().anchoredPosition = new Vector2(0, 50);
+            for (int i = 0; i < tags.arraySize; ++i)
+            {
+                if (tags.GetArrayElementAtIndex(i).stringValue == tagName)
+                {
+                    return; // 既に存在する
+                }
+            }
 
-        GameObject btnObj = new GameObject("Button");
-        btnObj.transform.SetParent(panelObj.transform, false);
-        Image btnImage = btnObj.AddComponent<Image>();
-        btnImage.color = Color.white;
+            tags.InsertArrayElementAtIndex(tags.arraySize);
+            tags.GetArrayElementAtIndex(tags.arraySize - 1).stringValue = tagName;
+            so.ApplyModifiedProperties();
+            so.Update();
+        }
+    }
+
+    private static GameObject CreatePanel(Transform parent, string name, Color color, float alpha)
+    {
+        GameObject panel = new GameObject(name);
+        panel.transform.SetParent(parent, false);
+        
+        Image img = panel.AddComponent<Image>();
+        color.a = alpha;
+        img.color = color;
+        
+        RectTransform rect = panel.GetComponent<RectTransform>();
+        rect.anchorMin = Vector2.zero;
+        rect.anchorMax = Vector2.one;
+        rect.sizeDelta = Vector2.zero; // Stretch
+        
+        return panel;
+    }
+
+    private static Text CreateText(Transform parent, string content, int fontSize, Color color, float yOffset)
+    {
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(parent, false);
+        Text txt = textObj.AddComponent<Text>();
+        txt.text = content;
+        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.fontSize = fontSize;
+        txt.color = color;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.rectTransform.anchoredPosition = new Vector2(0, yOffset);
+        txt.rectTransform.sizeDelta = new Vector2(400, 100);
+        return txt;
+    }
+
+    private static Button CreateButton(Transform parent, string label, float yOffset, GameManager gm)
+    {
+        GameObject btnObj = new GameObject("RestartButton");
+        btnObj.transform.SetParent(parent, false);
+        
+        Image img = btnObj.AddComponent<Image>();
+        img.color = Color.white;
+        
         Button btn = btnObj.AddComponent<Button>();
-        RectTransform btnRect = btnObj.GetComponent<RectTransform>();
-        btnRect.anchoredPosition = new Vector2(0, -80);
-        btnRect.sizeDelta = new Vector2(200, 50);
+        btn.onClick.AddListener(gm.RestartGame);
 
-        GameObject btnTextObj = new GameObject("BtnText");
-        btnTextObj.transform.SetParent(btnObj.transform, false);
-        Text btnText = btnTextObj.AddComponent<Text>();
-        btnText.font = font;
-        btnText.text = "REPLAY";
-        btnText.fontSize = 24;
-        btnText.alignment = TextAnchor.MiddleCenter;
-        btnText.color = Color.black;
-        RectTransform btnTextRect = btnTextObj.GetComponent<RectTransform>();
-        btnTextRect.anchorMin = Vector2.zero;
-        btnTextRect.anchorMax = Vector2.one;
-        btnTextRect.offsetMin = Vector2.zero;
-        btnTextRect.offsetMax = Vector2.zero;
+        RectTransform rect = btnObj.GetComponent<RectTransform>();
+        rect.sizeDelta = new Vector2(200, 50);
+        rect.anchoredPosition = new Vector2(0, yOffset);
 
-        UnityEventTools.AddPersistentListener(btn.onClick, action);
-        panelObj.SetActive(false);
-        return panelObj;
+        GameObject textObj = new GameObject("Text");
+        textObj.transform.SetParent(btnObj.transform, false);
+        Text txt = textObj.AddComponent<Text>();
+        txt.text = label;
+        txt.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
+        txt.fontSize = 24;
+        txt.color = Color.black;
+        txt.alignment = TextAnchor.MiddleCenter;
+        txt.resizeTextForBestFit = true;
+        
+        RectTransform textRect = textObj.GetComponent<RectTransform>();
+        textRect.anchorMin = Vector2.zero;
+        textRect.anchorMax = Vector2.one;
+        textRect.sizeDelta = Vector2.zero;
+
+        return btn;
     }
 }
