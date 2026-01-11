@@ -28,7 +28,23 @@ public class GameManager : MonoBehaviour
 
     void Start()
     {
+        // Failsafe: 参照が切れていたら名前で探す
+        if (gameOverPanel == null) gameOverPanel = GameObject.Find("GameOverPanel");
+        if (stageClearPanel == null) stageClearPanel = GameObject.Find("StageClearPanel");
+        if (scoreText == null)
+        {
+            GameObject stObj = GameObject.Find("ScoreText");
+            if (stObj != null) scoreText = stObj.GetComponent<Text>();
+        }
+        if (finalScoreText == null)
+        {
+            GameObject ftObj = GameObject.Find("FinalScoreText");
+            if (ftObj != null) finalScoreText = ftObj.GetComponent<Text>();
+        }
+
         UpdateScoreUI();
+        // 初期化時に非表示にするが、シーンロード直後はオブジェクトがアクティブな可能性があるので
+        // 取得後に非表示にする
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (stageClearPanel != null) stageClearPanel.SetActive(false);
     }

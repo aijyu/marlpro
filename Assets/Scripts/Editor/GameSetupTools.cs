@@ -46,6 +46,11 @@ public class GameSetupTools
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
         rb.interpolation = RigidbodyInterpolation2D.Interpolate; // ガクつき防止
         
+        // 壁張り付き防止のマテリアル
+        PhysicsMaterial2D noFriction = new PhysicsMaterial2D("NoFriction");
+        noFriction.friction = 0;
+        player.GetComponent<BoxCollider2D>().sharedMaterial = noFriction;
+
         PlayerController pc = player.AddComponent<PlayerController>();
         pc.moveSpeed = 8f;
         pc.jumpForce = 12f;

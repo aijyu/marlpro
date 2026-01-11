@@ -47,7 +47,8 @@ public class EnemyController : MonoBehaviour
         Collider2D[] colliders = Physics2D.OverlapCircleAll(position, checkRadius, groundLayer);
         foreach (var col in colliders)
         {
-            if (col != myCollider && !col.isTrigger) // 自分以外、かつTriggerでないもの
+            // 自分以外、Triggerでない、かつPlayer（自機）でないもの
+            if (col != myCollider && !col.isTrigger && !col.CompareTag("Player"))
             {
                 return true;
             }
