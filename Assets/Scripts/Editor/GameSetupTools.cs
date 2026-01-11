@@ -77,6 +77,7 @@ public class GameSetupTools
         GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(30, -2, 0), new Vector3(1, 4, 1));
         goal.tag = "Goal";
         goal.GetComponent<BoxCollider2D>().isTrigger = true;
+        goal.AddComponent<Goal>(); // Goalスクリプトをアタッチ
 
         // 9. GameManager
         GameObject gmObj = new GameObject("GameManager");
