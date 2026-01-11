@@ -10,27 +10,49 @@ public class EnemyController : MonoBehaviour
     public float checkRadius = 0.1f;
     public LayerMask groundLayer;
     private GameManager gameManager;
+    private Collider2D myCollider;
 
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
+        myCollider = GetComponent<Collider2D>();
         gameManager = FindObjectOfType<GameManager>();
     }
 
     void FixedUpdate()
     {
-        // 地面の切れ目検知（進行方向に地面があるか）
-        bool isGroundAhead = Physics2D.OverlapCircle(groundCheck.position, checkRadius, groundLayer);
-        // 壁検知（進行方向に壁があるか）
-        bool isWallAhead = Physics2D.OverlapCircle(wallCheck.position, checkRadius, groundLayer);
+        // 自分以外のコライダーにヒットするかチェックする
+        // 常に地面に接しているか (Platformの端判定)
+        bool isGroundAhead = CheckCollision(groundCheck.position);
+        
+        // 壁があるか
+        bool isWallAhead = CheckCollision(wallCheck.position);
 
-        // 地面がない、または壁がある場合、反転
+        // デバッグ表示（Sceneビューで確認用）
+        Debug.DrawLine(groundCheck.position, groundCheck.position + Vector3.down * checkRadius, isGroundAhead ? Color.green : Color.red);
+        Debug.DrawLine(wallCheck.position, wallCheck.position + Vector3.right * direction * checkRadius, isWallAhead ? Color.red : Color.green);
+
+        // 「地面がない」または「壁がある」場合、反転
         if (!isGroundAhead || isWallAhead)
         {
             Flip();
         }
 
         rb.velocity = new Vector2(moveSpeed * direction, rb.velocity.y);
+    }
+
+    // 自分自身を除外してOverlapCircle判定を行う
+    bool CheckCollision(Vector3 position)
+    {
+        Collider2D[] colliders = Physics2D.OverlapCircleAll(position, checkRadius, groundLayer);
+        foreach (var col in colliders)
+        {
+            if (col != myCollider && !col.isTrigger) // 自分以外、かつTriggerでないもの
+            {
+                return true;
+            }
+        }
+        return false;
     }
 
     void Flip()
@@ -41,13 +63,10 @@ public class EnemyController : MonoBehaviour
 
     public void Defeat()
     {
-        // スコア加算
-        if (gameManager != null)
+        if (GameManager.Instance != null)
         {
-            gameManager.AddScore(100);
+            GameManager.Instance.AddScore(100);
         }
-        
-        // 倒された演出（パーティクルなどあればここで生成）
         Destroy(gameObject);
     }
 }

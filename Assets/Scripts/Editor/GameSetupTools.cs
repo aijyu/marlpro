@@ -23,16 +23,15 @@ public class GameSetupTools
         GameObject cameraObj = new GameObject("Main Camera");
         Camera cam = cameraObj.AddComponent<Camera>();
         cam.orthographic = true;
-        cam.orthographicSize = 5f;
-        cam.backgroundColor = new Color(0.5f, 0.7f, 1f); // 青空っぽい色
+        cam.orthographicSize = 8f; // 視野を広く
+        cam.backgroundColor = new Color(0.5f, 0.7f, 1f);
         cam.clearFlags = CameraClearFlags.SolidColor;
         cameraObj.tag = "MainCamera";
         cameraObj.transform.position = new Vector3(0, 0, -10);
 
         // 4. Ground (地面)
-        GameObject ground = CreateSpriteObject("Ground", new Color(0.2f, 0.8f, 0.2f), new Vector3(0, -4, 0), new Vector3(100, 2, 1));
-        ground.GetComponent<SpriteRenderer>().maskInteraction = SpriteMaskInteraction.None; // Default
-        // Rigidbodyは不要、StaticでOK
+        GameObject ground = CreateSpriteObject("Ground", new Color(0.2f, 0.8f, 0.2f), new Vector3(0, -4, 0), new Vector3(200, 2, 1)); // 幅を広く
+        ground.GetComponent<SpriteRenderer>().maskInteraction = SpriteMaskInteraction.None;
 
         // 5. Platforms (空中の足場)
         CreateSpriteObject("Platform1", new Color(0.6f, 0.4f, 0.2f), new Vector3(5, -1, 0), new Vector3(4, 1, 1));
@@ -45,6 +44,7 @@ public class GameSetupTools
         Rigidbody2D rb = player.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate; // ガクつき防止
         
         PlayerController pc = player.AddComponent<PlayerController>();
         pc.moveSpeed = 8f;
@@ -53,11 +53,11 @@ public class GameSetupTools
         // GroundCheck用の子オブジェクト
         GameObject groundCheck = new GameObject("GroundCheck");
         groundCheck.transform.parent = player.transform;
-        groundCheck.transform.localPosition = new Vector3(0, -0.6f, 0); // 足元
+        groundCheck.transform.localPosition = new Vector3(0, -0.6f, 0); 
         pc.groundCheck = groundCheck.transform;
         
-        // レイヤーマスク設定 (Everything)
-        pc.groundLayer = -1; // -1 is Everything (簡易的に)
+        // レイヤーマスク設定
+        pc.groundLayer = -1; 
 
         // カメラ追従設定
         CameraFollow cf = cameraObj.AddComponent<CameraFollow>();
@@ -84,7 +84,7 @@ public class GameSetupTools
         canvasObj.AddComponent<CanvasScaler>();
         canvasObj.AddComponent<GraphicRaycaster>();
 
-        // EventSystem
+        // EventSystem (必須)
         GameObject eventSystem = new GameObject("EventSystem");
         eventSystem.AddComponent<EventSystem>();
         eventSystem.AddComponent<StandaloneInputModule>();
@@ -94,7 +94,7 @@ public class GameSetupTools
         scoreTextObj.transform.SetParent(canvasObj.transform, false);
         Text scoreText = scoreTextObj.AddComponent<Text>();
         scoreText.text = "Score: 0";
-        scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf"); // Legacy Font
+        scoreText.font = Resources.GetBuiltinResource<Font>("LegacyRuntime.ttf");
         scoreText.fontSize = 30;
         scoreText.color = Color.black;
         scoreText.rectTransform.anchorMin = new Vector2(0, 1);
@@ -109,7 +109,7 @@ public class GameSetupTools
         Text goText = CreateText(gameOverPanel.transform, "GAME OVER", 50, Color.red, 50);
         Button restartBtn = CreateButton(gameOverPanel.transform, "Restart", 50, gm);
         gm.gameOverPanel = gameOverPanel;
-        gameOverPanel.SetActive(false); // 初期は非表示
+        gameOverPanel.SetActive(false);
 
         // Stage Clear Panel
         GameObject clearPanel = CreatePanel(canvasObj.transform, "StageClearPanel", Color.white, 0.8f);
@@ -128,7 +128,10 @@ public class GameSetupTools
 
         Button clearRestartBtn = CreateButton(clearPanel.transform, "Restart", -100, gm);
         gm.stageClearPanel = clearPanel;
-        clearPanel.SetActive(false);
+        clearPanel.SetActive(false); // 初期は非表示
+
+        // 変更をUnityエディタに認識させる（重要）
+        EditorUtility.SetDirty(gm);
 
         Debug.Log("Scene Created Successfully!");
     }
@@ -149,7 +152,6 @@ public class GameSetupTools
 
     private static Sprite CreateSquareSprite(Color color)
     {
-        // 簡易的なテクスチャ生成
         Texture2D texture = new Texture2D(32, 32);
         Color[] pixels = new Color[32 * 32];
         for (int i = 0; i < pixels.Length; i++) pixels[i] = color;
@@ -165,28 +167,27 @@ public class GameSetupTools
         
         Rigidbody2D rb = enemy.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate; // ガクつき防止
 
         EnemyController ec = enemy.AddComponent<EnemyController>();
         
         // Checks
         GameObject groundCheck = new GameObject("GroundCheck");
         groundCheck.transform.parent = enemy.transform;
-        groundCheck.transform.localPosition = new Vector3(0.6f, -0.6f, 0); // 進行方向斜め下
+        // 判定位置を内側(0.3f)に寄せて、崖ギリギリまで進めるように緩和
+        groundCheck.transform.localPosition = new Vector3(0.3f, -0.6f, 0); 
         ec.groundCheck = groundCheck.transform;
 
         GameObject wallCheck = new GameObject("WallCheck");
         wallCheck.transform.parent = enemy.transform;
-        wallCheck.transform.localPosition = new Vector3(0.6f, 0, 0); // 進行方向
+        wallCheck.transform.localPosition = new Vector3(0.6f, 0, 0); 
         ec.wallCheck = wallCheck.transform;
 
-        // レイヤー設定
         ec.groundLayer = -1; 
     }
 
     private static void CreateTag(string tagName)
     {
-        // Tagが既に存在するかチェックして、なければ追加するのはEditorスクリプト特有処理
-        // SerializedObjectを使ってTagManagerを編集する
         Object[] asset = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/TagManager.asset");
         if ((asset != null) && (asset.Length > 0))
         {
@@ -197,7 +198,7 @@ public class GameSetupTools
             {
                 if (tags.GetArrayElementAtIndex(i).stringValue == tagName)
                 {
-                    return; // 既に存在する
+                    return; 
                 }
             }
 
@@ -220,7 +221,7 @@ public class GameSetupTools
         RectTransform rect = panel.GetComponent<RectTransform>();
         rect.anchorMin = Vector2.zero;
         rect.anchorMax = Vector2.one;
-        rect.sizeDelta = Vector2.zero; // Stretch
+        rect.sizeDelta = Vector2.zero; 
         
         return panel;
     }
@@ -249,7 +250,11 @@ public class GameSetupTools
         img.color = Color.white;
         
         Button btn = btnObj.AddComponent<Button>();
-        btn.onClick.AddListener(gm.RestartGame);
+        
+        // 重要: エディタスクリプトで永続的なリスナーを追加する
+        // UnityEventToolsを使用するにはUnityEditor.Events名前空間が必要だが、
+        // このスクリプトはEditorフォルダにあるのでOK
+        UnityEditor.Events.UnityEventTools.AddPersistentListener(btn.onClick, gm.RestartGame);
 
         RectTransform rect = btnObj.GetComponent<RectTransform>();
         rect.sizeDelta = new Vector2(200, 50);

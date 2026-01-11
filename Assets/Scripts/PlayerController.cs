@@ -12,6 +12,9 @@ public class PlayerController : MonoBehaviour
     private GameManager gameManager;
     private bool isDead = false;
 
+    private float moveInput;
+    private bool jumpRequest;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
@@ -22,27 +25,34 @@ public class PlayerController : MonoBehaviour
     {
         if (isDead) return;
 
+        // 入力の受付はUpdateで行う
+        moveInput = Input.GetAxis("Horizontal");
+        
+        if (isGrounded && Input.GetButtonDown("Jump"))
+        {
+            jumpRequest = true;
+        }
+
+         // 向きの反転 (Visual Only)
+        if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
+        else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
+    }
+
+    void FixedUpdate()
+    {
+        if (isDead) return;
+
         // 接地判定
         isGrounded = Physics2D.OverlapCircle(groundCheck.position, groundCheckRadius, groundLayer);
 
-        // 移動
-        float moveInput = Input.GetAxis("Horizontal");
+        // 移動処理
         rb.velocity = new Vector2(moveInput * moveSpeed, rb.velocity.y);
 
-        // 向きの反転
-        if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
-        else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
-
-        // ジャンプ
-        if (isGrounded && Input.GetButtonDown("Jump"))
+        // ジャンプ処理
+        if (jumpRequest)
         {
             rb.velocity = new Vector2(rb.velocity.x, jumpForce);
-        }
-
-        // 落下判定
-        if (transform.position.y < -10f)
-        {
-            Die();
+            jumpRequest = false;
         }
     }
 
@@ -52,24 +62,19 @@ public class PlayerController : MonoBehaviour
 
         if (collision.gameObject.CompareTag("Enemy"))
         {
-            // 敵の上から接触したか判定 (プレイヤーの足元が敵の中心より上)
             foreach (ContactPoint2D point in collision.contacts)
             {
-                if (point.normal.y > 0.5f) // 上方向からの接触
+                if (point.normal.y > 0.5f) 
                 {
-                    // 敵を踏んだ
                     EnemyController enemy = collision.gameObject.GetComponent<EnemyController>();
                     if (enemy != null)
                     {
                         enemy.Defeat();
-                        // 踏んだ反動でジャンプ
                         rb.velocity = new Vector2(rb.velocity.x, jumpForce / 1.5f);
                     }
                     return;
                 }
             }
-
-            // 横や下から当たったらダメージ（ゲームオーバー）
             Die();
         }
     }
@@ -80,8 +85,10 @@ public class PlayerController : MonoBehaviour
 
         if (other.CompareTag("Goal"))
         {
-            gameManager.StageClear();
-            enabled = false; // 操作無効化
+            // Goal.csで処理するのでここでの呼び出しは不要、あるいは重複防止
+            // Goal.csのOnTriggerEnter2Dが動くので、ここでは何もしないか、
+            // GameManager側で重複チェックする
+            enabled = false;
             rb.velocity = Vector2.zero;
         }
     }
@@ -90,9 +97,8 @@ public class PlayerController : MonoBehaviour
     {
         if (isDead) return;
         isDead = true;
-        gameManager.GameOver();
-        // プレイヤーを少し跳ねさせてから落下させる演出（任意）
+        GameManager.Instance.GameOver(); // Singleton経由に変更
         rb.velocity = new Vector2(0, 5f);
-        GetComponent<Collider2D>().enabled = false; // 当たり判定を消して落下
+        GetComponent<Collider2D>().enabled = false;
     }
 }
