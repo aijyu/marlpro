@@ -36,6 +36,10 @@ public class PlayerController : MonoBehaviour
          // 向きの反転 (Visual Only)
         if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
         else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
+        if (transform.position.y < -10f)
+        {
+            Die();
+        }
     }
 
     void FixedUpdate()

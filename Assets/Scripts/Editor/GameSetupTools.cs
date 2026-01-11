@@ -35,32 +35,36 @@ public class GameSetupTools
 
         // 5. Platforms (空中の足場) & 7. Enemy loop
         // スタート付近からゴール付近までループで生成
-        for (int x = 5; x < 100; x += 8)
+        // 5. Platforms (空中の足場) & 7. Enemy loop
+        // スタート付近からゴール付近までループで生成 (間隔を少し広げる 8->10)
+        for (int x = 5; x < 100; x += 10)
         {
-            // ランダムな高さオフセット (-1 to 2) 簡易的にパターン化
             float yOffset = (x % 3) * 1.5f - 1f; 
-            CreateSpriteObject($"Platform_{x}", new Color(0.6f, 0.4f, 0.2f), new Vector3(x, yOffset, 0), new Vector3(3, 1, 1));
+            // スケール変更: (3, 1, 1) -> (4.5, 1.5, 1)
+            CreateSpriteObject($"Platform_{x}", new Color(0.6f, 0.4f, 0.2f), new Vector3(x, yOffset, 0), new Vector3(4.5f, 1.5f, 1));
 
-            // 一定間隔で敵を配置 (足場の上)
-            if (x % 16 == 5) // 適当な頻度
+            if (x % 20 == 5) // 頻度微調整
             {
-                 CreateEnemy(new Vector3(x, yOffset + 1.5f, 0));
+                 // Enemy Scale: Vector3.one -> Vector3.one * 1.5f
+                 CreateEnemy(new Vector3(x, yOffset + 2f, 0));
             }
         }
         
         // 地上の敵も追加
         for (int x = 10; x < 100; x += 15)
         {
-             CreateEnemy(new Vector3(x, -2, 0));
+             CreateEnemy(new Vector3(x, -1.5f, 0));
         }
 
         // 6. Player
-        GameObject player = CreateSpriteObject("Player", Color.white, new Vector3(-5, -2, 0), Vector3.one);
+        // Player Scale: Vector3.one -> Vector3.one * 1.5f
+        GameObject player = CreateSpriteObject("Player", Color.white, new Vector3(-5, -1, 0), Vector3.one * 1.5f);
         player.tag = "Player";
         Rigidbody2D rb = player.AddComponent<Rigidbody2D>();
         rb.freezeRotation = true;
+        rb.gravityScale = 3f; // 重力を強くして落下速度を上げる
         rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
-        rb.interpolation = RigidbodyInterpolation2D.Interpolate; // ガクつき防止
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate; 
         
         // 壁張り付き防止のマテリアル
         PhysicsMaterial2D noFriction = new PhysicsMaterial2D("NoFriction");
@@ -69,7 +73,7 @@ public class GameSetupTools
 
         PlayerController pc = player.AddComponent<PlayerController>();
         pc.moveSpeed = 8f;
-        pc.jumpForce = 12f;
+        pc.jumpForce = 22f; // 重力3倍に合わせてジャンプ力も強化（ただし高く飛びすぎないように調整）
         
         // GroundCheck用の子オブジェクト
         GameObject groundCheck = new GameObject("GroundCheck");
@@ -179,7 +183,8 @@ public class GameSetupTools
 
     private static void CreateEnemy(Vector3 position)
     {
-        GameObject enemy = CreateSpriteObject("Enemy", Color.red, position, Vector3.one);
+        // Enemy Scale: Vector3.one -> Vector3.one * 1.5f
+        GameObject enemy = CreateSpriteObject("Enemy", Color.red, position, Vector3.one * 1.5f);
         enemy.tag = "Enemy";
         
         Rigidbody2D rb = enemy.AddComponent<Rigidbody2D>();
