@@ -23,8 +23,11 @@ public class GameManager : MonoBehaviour
     public GameObject stageClearPanel;
     public Text finalScoreText; // クリア時のスコア表示用
 
-    private int score = 0;
+    private int bonusScore = 0; // 敵撃破などのボーナス
+    private int maxHeightScore = 0; // 到達高度スコア
     private bool isGameOver = false;
+
+    private Transform playerTransform;
 
     void Start()
     {
@@ -42,17 +45,35 @@ public class GameManager : MonoBehaviour
             if (ftObj != null) finalScoreText = ftObj.GetComponent<Text>();
         }
 
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null) playerTransform = playerObj.transform;
+
         UpdateScoreUI();
-        // 初期化時に非表示にするが、シーンロード直後はオブジェクトがアクティブな可能性があるので
-        // 取得後に非表示にする
+        
         if (gameOverPanel != null) gameOverPanel.SetActive(false);
         if (stageClearPanel != null) stageClearPanel.SetActive(false);
+    }
+
+    void Update()
+    {
+        if (isGameOver) return;
+
+        if (playerTransform != null)
+        {
+            // 高さをスコアに換算 (Y=1 -> 10点)
+            int currentHeightScore = (int)(playerTransform.position.y * 10);
+            if (currentHeightScore > maxHeightScore)
+            {
+                maxHeightScore = currentHeightScore;
+                UpdateScoreUI();
+            }
+        }
     }
 
     public void AddScore(int visibleScore)
     {
         if (isGameOver) return;
-        score += visibleScore;
+        bonusScore += visibleScore;
         UpdateScoreUI();
     }
 
@@ -60,7 +81,8 @@ public class GameManager : MonoBehaviour
     {
         if (scoreText != null)
         {
-            scoreText.text = "Score: " + score;
+            int totalScore = maxHeightScore + bonusScore;
+            scoreText.text = "Score: " + totalScore;
         }
     }
 
@@ -89,7 +111,7 @@ public class GameManager : MonoBehaviour
             stageClearPanel.SetActive(true);
             if (finalScoreText != null)
             {
-                finalScoreText.text = "Final Score: " + score;
+                finalScoreText.text = "Final Score: " + (maxHeightScore + bonusScore);
             }
         }
     }

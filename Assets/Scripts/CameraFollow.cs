@@ -6,18 +6,15 @@ public class CameraFollow : MonoBehaviour
     public Vector3 offset = new Vector3(0, 2, -10);
     public float smoothSpeed = 0.125f;
 
-    void LateUpdate()
-    {
-        if (target == null) return;
+    public float scrollSpeed = 2.0f;
 
-        // User Request: 上下は固定にしてほしい
-        // Y軸は現在のカメラの高さを維持し、X軸のみ追従する
-        Vector3 desiredPosition = new Vector3(target.position.x + offset.x, transform.position.y, transform.position.z);
+    void Update()
+    {
+        // 強制スクロール: Y軸方向に一定速度で移動
+        transform.position += Vector3.up * scrollSpeed * Time.deltaTime;
         
-        Vector3 smoothedPosition = Vector3.Lerp(transform.position, desiredPosition, smoothSpeed);
-        // Lerp等の計算誤差でZが変わらないように明示的に設定
-        smoothedPosition.z = transform.position.z; 
-        
-        transform.position = smoothedPosition;
+        // プレイヤーのX座標も追従するかどうか？
+        // 塔ならカメラは中央固定で、プレイヤーが左右に動く形が一般的。
+        // なのでTarget追従は完全に廃止する。
     }
 }

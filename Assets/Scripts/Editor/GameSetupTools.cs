@@ -77,6 +77,25 @@ public class GameSetupTools
         CreateScene(settings);
     }
 
+    // Babel Tower
+    [MenuItem("Tools/Create Babel Tower")]
+    public static void CreateBabelTower()
+    {
+        StageSettings settings = new StageSettings
+        {
+            stageName = "Babel Tower",
+            skyColor = new Color(0.1f, 0.1f, 0.2f), // Dark Blue
+            groundColor = new Color(0.3f, 0.3f, 0.3f), // Stone
+            platformColor = new Color(0.6f, 0.5f, 0.3f), // Wood/Stone
+            holeFrequency = 0, 
+            enemyFrequency = 3, // Y軸間隔
+            platformGap = 3, // Y軸間隔
+            goalX = 0, 
+            goalY = 150 // 高さ
+        };
+        CreateTowerScene(settings);
+    }
+
     private struct StageSettings
     {
         public string stageName;
@@ -87,6 +106,7 @@ public class GameSetupTools
         public int enemyFrequency; // lower=more frequent
         public int platformGap;
         public float goalX;
+        public float goalY;
     }
 
     private static void CreateScene(StageSettings settings)
@@ -162,6 +182,84 @@ public class GameSetupTools
         SetupUI(settings);
 
         Debug.Log($"{settings.stageName} Created Successfully!");
+    }
+
+    private static void CreateTowerScene(StageSettings settings)
+    {
+        CreateTag("Enemy");
+        CreateTag("Goal");
+
+        if (Camera.main != null) Object.DestroyImmediate(Camera.main.gameObject);
+        
+        GameObject cameraObj = new GameObject("Main Camera");
+        Camera cam = cameraObj.AddComponent<Camera>();
+        cam.orthographic = true;
+        cam.orthographicSize = 10f; // 縦長なので視野広めに
+        cam.backgroundColor = settings.skyColor;
+        cam.clearFlags = CameraClearFlags.SolidColor;
+        cameraObj.tag = "MainCamera";
+        cameraObj.transform.position = new Vector3(0, 5, -10); // スタート位置少し上
+
+        // 左右の壁 (塔の壁)
+        CreateSpriteObject("LeftWall", settings.groundColor, new Vector3(-12, settings.goalY / 2, 0), new Vector3(2, settings.goalY + 20, 1));
+        CreateSpriteObject("RightWall", settings.groundColor, new Vector3(12, settings.goalY / 2, 0), new Vector3(2, settings.goalY + 20, 1));
+
+        // 地面 (スタート地点)
+        CreateSpriteObject("Ground", settings.groundColor, new Vector3(0, -4, 0), new Vector3(24, 2, 1));
+
+        // 縦方向の足場
+        for (float y = 0; y < settings.goalY; y += settings.platformGap)
+        {
+            // 足場のX座標をランダムに (壁の内側 -10 ~ 10)
+            float x = Random.Range(-9f, 9f);
+            
+            // ランダム幅
+            float width = Random.Range(3f, 6f);
+            
+            CreateSpriteObject($"Platform_{y}", settings.platformColor, new Vector3(x, y, 0), new Vector3(width, 1, 1));
+
+            // 敵配置
+            if ((int)y % settings.enemyFrequency == 0 && y > 5)
+            {
+                 CreateEnemy(new Vector3(x, y + 1.5f, 0));
+            }
+        }
+
+        // 6. Player
+        GameObject player = CreateSpriteObject("Player", Color.white, new Vector3(0, -2, 0), Vector3.one * 1.5f);
+        player.tag = "Player";
+        Rigidbody2D rb = player.AddComponent<Rigidbody2D>();
+        rb.freezeRotation = true;
+        rb.gravityScale = 3f;
+        rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous;
+        rb.interpolation = RigidbodyInterpolation2D.Interpolate; 
+        
+        PhysicsMaterial2D noFriction = new PhysicsMaterial2D("NoFriction");
+        noFriction.friction = 0;
+        player.GetComponent<BoxCollider2D>().sharedMaterial = noFriction;
+
+        PlayerController pc = player.AddComponent<PlayerController>();
+        pc.moveSpeed = 10f; // 左右移動は大事
+        pc.jumpForce = 22f; 
+        
+        GameObject groundCheck = new GameObject("GroundCheck");
+        groundCheck.transform.parent = player.transform;
+        groundCheck.transform.localPosition = new Vector3(0, -0.6f, 0); 
+        pc.groundCheck = groundCheck.transform;
+        
+        pc.groundLayer = -1; 
+
+        CameraFollow cf = cameraObj.AddComponent<CameraFollow>();
+        cf.target = player.transform;
+        cf.scrollSpeed = 1.5f; // スクロール速度設定
+
+        // 8. Goal
+        GameObject goal = CreateSpriteObject("Goal", Color.yellow, new Vector3(0, settings.goalY + 2, 0), new Vector3(20, 1, 1)); // ゴールは横長バー
+        goal.tag = "Goal";
+        goal.GetComponent<BoxCollider2D>().isTrigger = true;
+        goal.AddComponent<Goal>();
+
+        SetupUI(settings);
     }
 
     private static void CreateGround(StageSettings settings)

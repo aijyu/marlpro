@@ -15,10 +15,19 @@ public class PlayerController : MonoBehaviour
     private float moveInput;
     private bool jumpRequest;
 
+    private Camera mainCamera;
+    private float screenHeight;
+
     void Start()
     {
         rb = GetComponent<Rigidbody2D>();
         gameManager = FindObjectOfType<GameManager>();
+        mainCamera = Camera.main;
+        // 画面の高さ（ワールド座標）の半分を計算
+        if (mainCamera != null)
+        {
+            screenHeight = mainCamera.orthographicSize;
+        }
     }
 
     void Update()
@@ -36,7 +45,10 @@ public class PlayerController : MonoBehaviour
          // 向きの反転 (Visual Only)
         if (moveInput > 0) transform.localScale = new Vector3(1, 1, 1);
         else if (moveInput < 0) transform.localScale = new Vector3(-1, 1, 1);
-        if (transform.position.y < -10f)
+
+        // 落下判定: カメラの下端より下に行ったらアウト
+        // カメラ位置 - 画面高さの半分 - マージン(1.0f)
+        if (mainCamera != null && transform.position.y < (mainCamera.transform.position.y - screenHeight - 1.5f))
         {
             Die();
         }
